@@ -1,0 +1,1006 @@
+{
+  "project": {
+    "name": "Server Sentinel Dashboard",
+    "tagline": "Zero-Trust Server Monitoring with Read-Only Agents & Encrypted Telemetry",
+    "current_version": "3.0.0-Fortress",
+    "architecture": "FastAPI Backend + React Frontend + Go Agent (Read-Only Sentinel)",
+    "design_philosophy": "Minimal Modern, Data-Dense, IBM Lean Aesthetics - NON-INVASIVE MONITORING"
+  },
+
+  "role_context": {
+    "persona": "You are a Senior DevOps Security Engineer with 10+ years building production monitoring systems",
+    "mandate": "CRITICAL: Review existing codebase BEFORE making changes. This is NOT a greenfield project.",
+    "quality_bar": "Battle-tested, security-hardened, lightweight agent design. NO database flooding. NO file modifications on monitored servers.",
+    "review_first_policy": "ALWAYS examine current implementation in handoff docs before proposing changes"
+  },
+
+  "core_principles": {
+    "security_first": [
+      "Go agent operates with ZERO write permissions (read-only monitoring)",
+      "All telemetry encrypted in transit (TLS 1.3 minimum)",
+      "Agent NEVER modifies files, permissions, or system state",
+      "SSH deployment credentials discarded after agent installation",
+      "HMAC signature on every heartbeat/telemetry payload"
+    ],
+    "lightweight_design": [
+      "Agent streams data and discards after send (no local storage overhead)",
+      "Binary heartbeat logs (1=online, 0=offline) instead of full timestamps",
+      "Efficient CPU core tracking (per-core percentage array)",
+      "Incremental API: fetch only new data since last poll (~95% bandwidth reduction)"
+    ],
+    "never_destructive": [
+      "Agent deployment does NOT delete existing services",
+      "Monitored server state remains untouched",
+      "Dashboard only displays data, never executes commands"
+    ]
+  },
+
+  "existing_implementation_review": {
+    "status": "66% COMPLETE - DO NOT REBUILD FROM SCRATCH",
+    "completed_features": [
+      "✅ FastAPI backend with SQLite (backend/sentinel.db)",
+      "✅ React + Vite frontend with ReactFlow dashboard",
+      "✅ Go agent 3.0.0-Fortress with heartbeat/telemetry loops",
+      "✅ Per-core CPU tracking (cpu_per_core JSON array)",
+      "✅ Process audit collection (top 10 processes + active users)",
+      "✅ Incremental telemetry API (/api/servers/{id}/telemetry/since)",
+      "✅ Database optimization with indexes (100x query speedup)",
+      "✅ Gemini AI chat integration (bottom-right modal)",
+      "✅ Auto/Light/Dark theme with system preference detection",
+      "✅ ForensicDrawer with live metrics graphs",
+      "✅ Cloudflare Tunnel setup (dev-api.theorify.shop, server-sentinel.theorify.shop)"
+    ],
+    "in_progress_features": [
+      "⏳ Process Audit UI display (backend collection done, frontend pending)",
+      "⏳ Apache VHosts parsing (collector exists, not integrated)",
+      "⏳ SSH deployment automation"
+    ],
+    "files_already_exist": {
+      "backend": [
+        "app/routers/agent.py - Heartbeat & telemetry endpoints",
+        "app/routers/servers.py - Server management APIs",
+        "app/models.py - SQLAlchemy models (Server, Telemetry, AuditLog)",
+        "app/schemas.py - Pydantic validation schemas",
+        "db_maintenance.py - Auto-cleanup script (7-day retention)"
+      ],
+      "frontend": [
+        "src/pages/Dashboard.jsx - ReactFlow canvas with server nodes",
+        "src/components/ForensicDrawer.jsx - Server detail modal with Recharts",
+        "src/components/GeminiModal.jsx - AI chat interface",
+        "src/components/HUD.jsx - Top navigation with theme switcher",
+        "src/context/ThemeContext.jsx - Auto/Latte/Titanium theme logic"
+      ],
+      "agent": [
+        "cmd/sentinel/main.go - Entry point, 30s heartbeat, 60s telemetry",
+        "internal/collector/system.go - CPU/RAM/Disk collection",
+        "internal/collector/process.go - Process audit (NEW, needs UI)",
+        "internal/collector/apache.go - VHost parsing (exists, not integrated)",
+        "internal/client/client.go - HTTP client with HMAC signatures"
+      ]
+    }
+  },
+
+  "tech_stack": {
+    "backend": {
+      "framework": "FastAPI 0.109+",
+      "database": "SQLite with WAL mode (backend/sentinel.db)",
+      "orm": "SQLAlchemy 2.0",
+      "validation": "Pydantic V2",
+      "deployment": {
+        "url": "https://dev-api.theorify.shop",
+        "port": 8190,
+        "service": "sentinel-backend.service (systemd)",
+        "tunnel": "Cloudflare Tunnel (cloudflared.service)"
+      },
+      "security": [
+        "HMAC-SHA256 signature verification (X-Agent-Secret header)",
+        "Environment variable secrets (SENTINEL_SECRET)",
+        "CORS restricted to frontend domain",
+        "Rate limiting on agent endpoints (future)"
+      ]
+    },
+
+    "frontend": {
+      "framework": "React 18 + Vite 5 + TypeScript",
+      "ui_library": "shadcn/ui + TailwindCSS",
+      "state_management": {
+        "server": "TanStack Query v5 (30s staleTime, incremental fetching)",
+        "global": "React Context (ThemeContext)",
+        "forms": "Native controlled components"
+      },
+      "visualization": [
+        "ReactFlow - Server node graph with custom nodes",
+        "Recharts - CPU/RAM time-series graphs with legend",
+        "Lucide React - Icon system"
+      ],
+      "deployment": {
+        "url": "https://server-sentinel.theorify.shop",
+        "port": 5173,
+        "service": "sentinel-frontend.service (systemd)",
+        "tunnel": "Cloudflare Tunnel"
+      }
+    },
+
+    "agent": {
+      "language": "Go 1.21+",
+      "binary_name": "sentinel-agent",
+      "version": "3.0.0-Fortress",
+      "libraries": [
+        "github.com/shirou/gopsutil/v3 - System metrics",
+        "Standard library net/http - Backend communication"
+      ],
+      "deployment_model": "Standalone binary deployed via SSH, runs as systemd service",
+      "intervals": {
+        "heartbeat": "30 seconds (lightweight ping with CPU/RAM snapshot)",
+        "telemetry": "60 seconds (detailed metrics: per-core CPU, processes, disk)"
+      },
+      "security": [
+        "Read-only file system access (NO write permissions)",
+        "HMAC signature on every request",
+        "TLS 1.3 for backend communication",
+        "No local log storage (stream-only design)"
+      ]
+    }
+  },
+
+  "database_schema": {
+    "servers": {
+      "columns": {
+        "id": "INTEGER PRIMARY KEY",
+        "hostname": "TEXT UNIQUE",
+        "ip_address": "TEXT",
+        "os_type": "TEXT - Detected from agent",
+        "os_version": "TEXT",
+        "agent_version": "TEXT - e.g., 3.0.0-Fortress",
+        "status": "TEXT - ONLINE/OFFLINE/DEGRADED",
+        "last_heartbeat": "DATETIME - Updated every 30s",
+        "last_sequence_id": "INTEGER - Replay attack prevention",
+        "cpu_cores": "INTEGER - Physical core count",
+        "total_ram_gb": "FLOAT",
+        "created_at": "DATETIME",
+        "metadata": "JSON - {ssh_user, deployment_timestamp, etc.}"
+      },
+      "indexes": ["hostname", "status", "last_heartbeat"]
+    },
+
+    "telemetry": {
+      "columns": {
+        "id": "INTEGER PRIMARY KEY",
+        "server_id": "INTEGER FK",
+        "timestamp": "DATETIME (indexed)",
+        "cpu_usage": "FLOAT - System-wide average (0-100)",
+        "cpu_per_core": "JSON - Array of per-core percentages",
+        "ram_usage": "FLOAT - Percentage (0-100)",
+        "ram_used_gb": "FLOAT",
+        "disk_usage": "JSON - Array of {mount_point, used_pct, total_gb}",
+        "active_services": "JSON - Map of service names to status",
+        "process_audit": "JSON - {top_processes: [{pid, user, cmd, cpu}], active_users: [str], service_count: int}",
+        "apache_vhosts": "JSON - {vhosts: [{domain, root_dir, port}]} (PLANNED)",
+        "network_stats": "JSON - {open_ports: [int], high_traffic_ports: [{port, conn_count}]} (PLANNED)"
+      },
+      "indexes": [
+        "idx_telemetry_server_timestamp (server_id, timestamp DESC)",
+        "idx_telemetry_timestamp (timestamp DESC)"
+      ],
+      "retention_policy": "Auto-delete entries older than 7 days (db_maintenance.py)"
+    },
+
+    "heartbeat_logs": {
+      "description": "EFFICIENT BINARY LOG - Not timestamp-per-heartbeat",
+      "columns": {
+        "id": "INTEGER PRIMARY KEY",
+        "server_id": "INTEGER FK",
+        "date": "DATE - Daily partition key",
+        "heartbeat_bitmap": "TEXT - Binary string: '111101110111...' (1=online, 0=offline)",
+        "interval_seconds": "INTEGER - Default 30 (for decoding bitmap)",
+        "metadata": "JSON - {total_expected_beats, downtime_ranges: [[start, end]]}"
+      },
+      "rationale": "Store 2880 heartbeats/day (30s interval) as ~360 byte string instead of 2880 DB rows",
+      "indexes": ["server_id, date"]
+    },
+
+    "connection_history": {
+      "columns": {
+        "id": "INTEGER PRIMARY KEY",
+        "server_id": "INTEGER FK (nullable, if connection failed)",
+        "ip_address": "TEXT",
+        "ssh_user": "TEXT",
+        "timestamp": "DATETIME",
+        "status": "TEXT - SUCCESS/AUTH_FAILED/TIMEOUT/NETWORK_ERROR",
+        "method": "TEXT - SSH/API_KEY",
+        "console_log": "TEXT - Deployment script output (first connection only)",
+        "error_message": "TEXT (nullable)"
+      },
+      "security_note": "SSH passwords NEVER stored, used only during deployment then discarded"
+    },
+
+    "file_permissions_audit": {
+      "description": "Track permission changes in monitored directories (PLANNED)",
+      "columns": {
+        "id": "INTEGER PRIMARY KEY",
+        "server_id": "INTEGER FK",
+        "file_path": "TEXT",
+        "old_permissions": "TEXT - e.g., 'rwxr-xr-x'",
+        "new_permissions": "TEXT",
+        "old_owner": "TEXT - 'user:group'",
+        "new_owner": "TEXT",
+        "changed_at": "DATETIME",
+        "alert_level": "TEXT - INFO/WARNING/CRITICAL"
+      }
+    },
+
+    "port_monitoring": {
+      "description": "Network port status tracking (PLANNED)",
+      "columns": {
+        "id": "INTEGER PRIMARY KEY",
+        "server_id": "INTEGER FK",
+        "timestamp": "DATETIME",
+        "port_number": "INTEGER",
+        "status": "TEXT - OPEN/CLOSED/LISTENING",
+        "process_name": "TEXT - Which process owns the port",
+        "connection_count": "INTEGER",
+        "traffic_level": "TEXT - LOW/MEDIUM/HIGH/CRITICAL",
+        "protocol": "TEXT - TCP/UDP"
+      }
+    }
+  },
+
+  "critical_features": [
+    {
+      "id": "AGENT_DEPLOY_01",
+      "name": "SSH-Based Agent Deployment Pipeline",
+      "priority": "P0 - BLOCKING (NOT YET IMPLEMENTED)",
+      "user_flow": [
+        "1. User clicks 'Connect Node' button in Dashboard",
+        "2. Drawer opens with form: SSH User, Server IP, Password (masked input)",
+        "3. Optional: Advanced settings (custom agent port, monitoring intervals)",
+        "4. User clicks 'Deploy Agent' button",
+        "5. Backend establishes SSH connection (paramiko in Python or ssh2 in Go)",
+        "6. Console output streamed to frontend in real-time (WebSocket or SSE)",
+        "7. Deployment script executes on remote server (see deployment_script below)",
+        "8. Agent binary copied, systemd service created, started",
+        "9. First heartbeat received within 30s = SUCCESS",
+        "10. Console log saved to connection_history table",
+        "11. SSH credentials discarded immediately after deployment"
+      ],
+      "deployment_script": {
+        "filename": "deploy-sentinel-agent.sh",
+        "steps": [
+          "#!/bin/bash",
+          "set -euo pipefail",
+          "",
+          "# Detect OS and architecture",
+          "OS=$(uname -s | tr '[:upper:]' '[:lower:]')",
+          "ARCH=$(uname -m)",
+          "AGENT_VERSION='3.0.0-Fortress'",
+          "",
+          "# Download agent binary (from backend /downloads endpoint or S3)",
+          "wget https://dev-api.theorify.shop/downloads/sentinel-agent-${OS}-${ARCH} -O /tmp/sentinel-agent",
+          "chmod +x /tmp/sentinel-agent",
+          "",
+          "# Create systemd service",
+          "sudo tee /etc/systemd/system/sentinel-agent.service > /dev/null <<EOF",
+          "[Unit]",
+          "Description=Server Sentinel Monitoring Agent",
+          "After=network.target",
+          "",
+          "[Service]",
+          "Type=simple",
+          "User=root",
+          "ExecStart=/usr/local/bin/sentinel-agent",
+          "Environment='SENTINEL_MASTER_URL=https://dev-api.theorify.shop'",
+          "Environment='SENTINEL_SECRET=${SECRET_TOKEN}'",
+          "Restart=always",
+          "RestartSec=10",
+          "",
+          "[Install]",
+          "WantedBy=multi-user.target",
+          "EOF",
+          "",
+          "# Move binary and start service",
+          "sudo mv /tmp/sentinel-agent /usr/local/bin/",
+          "sudo systemctl daemon-reload",
+          "sudo systemctl enable sentinel-agent.service",
+          "sudo systemctl start sentinel-agent.service",
+          "",
+          "# Verify agent is running",
+          "sleep 5",
+          "sudo systemctl status sentinel-agent.service --no-pager"
+        ]
+      },
+      "backend_implementation": {
+        "endpoint": "POST /api/servers/deploy",
+        "request_schema": {
+          "ssh_host": "string (IP or hostname)",
+          "ssh_port": "int (default 22)",
+          "ssh_user": "string",
+          "ssh_password": "string (NEVER logged or stored)",
+          "server_alias": "string (optional, defaults to hostname)"
+        },
+        "response": "WebSocket stream with deployment log lines",
+        "security": [
+          "Rate limit: 1 deployment per IP per 5 minutes",
+          "SSH credentials in memory only, cleared after use",
+          "Generate unique SENTINEL_SECRET per server (store in servers.metadata)",
+          "Deployment log sanitized (no passwords in console output)"
+        ]
+      },
+      "frontend_component": {
+        "file": "frontend/src/components/DeploymentDrawer.jsx",
+        "features": [
+          "SSH credential form with password visibility toggle",
+          "Live console output (scrolling terminal emulator)",
+          "Progress indicators: Connecting → Deploying → Starting → Verifying",
+          "Success state shows server details and 'View Dashboard' button",
+          "Error handling: SSH auth failed, network timeout, service start failed"
+        ]
+      },
+      "tests": [
+        "test_ssh_connection_success",
+        "test_ssh_auth_failure",
+        "test_agent_binary_download",
+        "test_systemd_service_creation",
+        "test_first_heartbeat_received",
+        "test_deployment_log_saved"
+      ]
+    },
+
+    {
+      "id": "HEARTBEAT_LOG_01",
+      "name": "Efficient Binary Heartbeat Logging",
+      "priority": "P1 - HIGH (REPLACES CURRENT TELEMETRY-ONLY APPROACH)",
+      "problem": "Current implementation stores full telemetry every 60s = database bloat",
+      "solution": "Lightweight 30s heartbeat as binary bitmap: '1' = online, '0' = missed",
+      "implementation": {
+        "agent_side": {
+          "endpoint": "POST /api/agent/heartbeat (already exists)",
+          "payload": {
+            "server_id": "int",
+            "timestamp": "ISO 8601 string",
+            "cpu_usage": "float (snapshot for node card)",
+            "ram_usage": "float (snapshot for node card)",
+            "sequence_id": "int (increment on each heartbeat)"
+          },
+          "interval": "30 seconds (already configured)"
+        },
+        "backend_side": {
+          "file": "backend/app/routers/agent.py",
+          "logic": [
+            "1. On heartbeat received, update server.last_heartbeat",
+            "2. Calculate time slot in day: slot = (timestamp.hour * 120) + (timestamp.minute * 2) + (timestamp.second // 30)",
+            "3. Fetch or create heartbeat_logs row for (server_id, current_date)",
+            "4. Update heartbeat_bitmap: Set bit at position `slot` to '1'",
+            "5. If >5 minutes since last heartbeat, mark missed beats as '0'",
+            "6. Store lightweight snapshot in telemetry for UI (cpu_usage, ram_usage only)"
+          ],
+          "optimization": "Use SQLite BLOB for bitmap storage instead of TEXT"
+        },
+        "frontend_visualization": {
+          "component": "HeartbeatHeatmap.jsx",
+          "display": "24-hour grid (48 columns × 60 rows = 2880 cells, each = 30s)",
+          "colors": "Green = online, Red = offline, Gray = no data yet",
+          "tooltip": "Time: 14:23:30 - Status: Online (98.7% uptime today)"
+        }
+      },
+      "benefits": [
+        "2880 heartbeats/day = 360 bytes vs. 2880 DB rows (99.9% space reduction)",
+        "Query 24h uptime: Single row lookup + count '1's in bitmap",
+        "Historical audit: '111111...00000...111111' shows exact downtime window"
+      ]
+    },
+
+    {
+      "id": "APACHE_VHOSTS_01",
+      "name": "Apache Virtual Hosts Monitoring",
+      "priority": "P1 - HIGH (COLLECTOR EXISTS, NEEDS INTEGRATION)",
+      "status": "⏳ Collector in go_agent/internal/collector/apache.go, not used",
+      "requirements": [
+        "Parse `apachectl -S` output on monitored server",
+        "Extract: VHost domain, port, DocumentRoot, SSL status",
+        "Store in telemetry.apache_vhosts as JSON array",
+        "Display in ForensicDrawer under 'Apache Configuration' section"
+      ],
+      "agent_implementation": {
+        "file": "go_agent/internal/collector/apache.go (ALREADY EXISTS)",
+        "function": "CollectApacheVHosts() ([]VHost, error)",
+        "integration_needed": [
+          "1. Import in cmd/sentinel/main.go",
+          "2. Call in telemetry collection loop (60s interval)",
+          "3. Add to telemetry payload struct in internal/client/client.go"
+        ]
+      },
+      "backend_changes": {
+        "model": "Add apache_vhosts column to Telemetry model (JSON)",
+        "schema": "Add ApacheVHostSchema in app/schemas.py",
+        "endpoint": "/api/servers/{id}/telemetry/latest includes apache_vhosts"
+      },
+      "frontend_display": {
+        "file": "frontend/src/components/ForensicDrawer.jsx",
+        "section": "Apache Virtual Hosts",
+        "table_columns": ["Domain", "Port", "Root Directory", "SSL", "Status"],
+        "styling": "shadcn/ui Table component with alternating row colors"
+      },
+      "data_structure": {
+        "apache_vhosts": [
+          {
+            "domain": "example.com",
+            "port": 443,
+            "document_root": "/var/www/example",
+            "ssl_enabled": true,
+            "server_admin": "admin@example.com",
+            "error_log": "/var/log/apache2/example_error.log"
+          }
+        ]
+      }
+    },
+
+    {
+      "id": "PORT_MONITOR_01",
+      "name": "Network Port Traffic Visualization",
+      "priority": "P1 - HIGH (NEW FEATURE)",
+      "requirements": [
+        "Agent collects: Open ports (netstat -tuln), connection counts per port",
+        "Classify traffic: <10 conn = Low (Gray), 10-50 = Medium (Green), 50-200 = High (Orange), >200 = Critical (Red)",
+        "Store in port_monitoring table with traffic_level enum",
+        "Display as color-coded port grid in ForensicDrawer"
+      ],
+      "agent_collector": {
+        "file": "go_agent/internal/collector/network.go (NEW)",
+        "function": "CollectPortStats() ([]PortStat, error)",
+        "implementation": [
+          "Execute: netstat -tuln | grep LISTEN",
+          "Parse output to extract port numbers and protocols",
+          "For each port, count active connections: netstat -an | grep ':PORT' | wc -l",
+          "Return array of {port, protocol, connection_count, process_name}"
+        ]
+      },
+      "frontend_visualization": {
+        "component": "PortTrafficGrid.jsx",
+        "layout": "Grid of port numbers (common ports highlighted: 80, 443, 22, 3306)",
+        "color_coding": {
+          "gray": "Port exists but no connections (unused)",
+          "green": "Port open with normal traffic (1-50 conn)",
+          "orange": "Port under moderate load (51-200 conn)",
+          "red": "Port experiencing high traffic (>200 conn)"
+        },
+        "interactions": [
+          "Hover shows: Port 443 (HTTPS) - 127 active connections - nginx process",
+          "Click port to see connection details (source IPs, top consumers)"
+        ]
+      }
+    },
+
+    {
+      "id": "BASH_HISTORY_01",
+      "name": "User Activity Audit - Bash History",
+      "priority": "P2 - MEDIUM (PRIVACY-SENSITIVE)",
+      "requirements": [
+        "Agent reads /home/*/.bash_history (requires root access)",
+        "Parse last 50 commands per user (do NOT store full history)",
+        "Aggregate: Most used commands, sudo usage count, risky commands (rm -rf, chmod 777)",
+        "Display in ForensicDrawer under 'User Activity' section"
+      ],
+      "privacy_considerations": [
+        "NEVER store passwords or sensitive data from command args",
+        "Redact commands with --password, -p, or AUTH_TOKEN= patterns",
+        "Only show command names, not full args (e.g., 'mysql' instead of 'mysql -u root -p secret')",
+        "User consent required in deployment (opt-in checkbox)"
+      ],
+      "data_structure": {
+        "bash_history_audit": {
+          "users": [
+            {
+              "username": "mukul",
+              "total_commands": 1247,
+              "top_commands": [
+                {"cmd": "ls", "count": 89},
+                {"cmd": "git", "count": 67},
+                {"cmd": "sudo", "count": 34}
+              ],
+              "risky_commands": [
+                {"cmd": "sudo rm -rf /var/log/*", "timestamp": "2025-12-22T10:15:00Z"}
+              ]
+            }
+          ]
+        }
+      }
+    },
+
+    {
+      "id": "FILE_TREE_01",
+      "name": "Codebase Decomposition & Permission Tracking",
+      "priority": "P2 - MEDIUM (COMPLEX FEATURE)",
+      "requirements": [
+        "Agent scans DocumentRoot directories from Apache VHosts",
+        "Build file tree: Detect file types (PHP, Python, JS, HTML, etc.)",
+        "Calculate: Lines of code per language, file count, directory structure depth",
+        "Track file permissions: Alert if .php files become 777 or owned by www-data",
+        "Compare against initial snapshot (stored at first scan)"
+      ],
+      "implementation": {
+        "agent_collector": {
+          "file": "go_agent/internal/collector/filesystem.go (NEW)",
+          "scan_strategy": [
+            "1. Get DocumentRoot from apache_vhosts (or default /var/www)",
+            "2. Walk directory tree using filepath.Walk()",
+            "3. For each file: stat() for size, permissions, owner",
+            "4. Classify by extension: .php, .py, .js, .css, .html, etc.",
+            "5. Detect framework: Look for composer.json (PHP), requirements.txt (Python), package.json (Node)"
+          ],
+          "permission_changes": [
+            "1. On first scan, store baseline in file_permissions_audit table",
+            "2. On subsequent scans, compare current permissions vs baseline",
+            "3. If change detected: Log to file_permissions_audit with alert_level",
+            "4. Alert if: File becomes world-writable (777), Owner changes to www-data"
+          ]
+        },
+        "backend_storage": {
+          "table": "file_tree_snapshots",
+          "columns": {
+            "server_id": "INTEGER FK",
+            "root_directory": "TEXT",
+            "snapshot_date": "DATE",
+            "file_tree": "JSON - Nested structure with {path, type, size, permissions}",
+            "language_stats": "JSON - {php: 1247 lines, python: 890 lines}",
+            "framework_detected": "TEXT - Laravel/Django/React/Unknown"
+          }
+        },
+        "frontend_visualization": {
+          "component": "FileTreeExplorer.jsx",
+          "features": [
+            "Tree view like Gitea (expandable directories)",
+            "Color-coded by file type (PHP = purple, Python = blue, JS = yellow)",
+            "Permission badge: Green = secure, Orange = warning, Red = critical",
+            "Diff view: Show what changed since last scan"
+          ]
+        }
+      }
+    },
+
+    {
+      "id": "GEMINI_FORENSICS_01",
+      "name": "Server-Specific Gemini Analysis",
+      "priority": "P2 - MEDIUM (PARTIALLY IMPLEMENTED)",
+      "status": "✅ General chat exists, needs forensic context integration",
+      "requirements": [
+        "Add 'Gemini Analysis' button in ForensicDrawer header",
+        "On click: Open Gemini chat modal pre-populated with server context",
+        "Context includes: CPU/RAM trends, process audit, Apache VHosts, recent errors",
+        "Structured prompt asks Gemini to: Identify anomalies, suggest optimizations, security risks"
+      ],
+      "structured_prompt_template": {
+        "role": "system",
+        "content": [
+          "You are a Linux server monitoring assistant analyzing telemetry data.",
+          "Provide concise, actionable insights. Focus on:",
+          "1. Performance bottlenecks (high CPU processes, memory leaks)",
+          "2. Security concerns (suspicious processes, open ports)",
+          "3. Configuration issues (misconfigured VHosts, disk space)",
+          "",
+          "Server Details:",
+          "- Hostname: {{hostname}}",
+          "- OS: {{os_type}} {{os_version}}",
+          "- Uptime: {{uptime_days}} days",
+          "",
+          "Current Metrics:",
+          "- CPU Usage: {{cpu_usage}}% ({{cpu_cores}} cores)",
+          "- RAM Usage: {{ram_usage}}% ({{ram_used_gb}}GB / {{total_ram_gb}}GB)",
+          "- Top Process: {{top_process.command}} ({{top_process.cpu_pct}}% CPU)",
+          "",
+          "Apache VHosts:",
+          "{{#each apache_vhosts}}",
+          "- {{domain}} ({{document_root}})",
+          "{{/each}}",
+          "",
+          "User Question: {{user_query}}"
+        ]
+      },
+      "backend_endpoint": {
+        "route": "POST /api/servers/{id}/gemini-analysis",
+        "logic": [
+          "1. Fetch latest telemetry for server",
+          "2. Populate structured prompt with server data",
+          "3. Call Gemini API with prompt",
+          "4. Stream response back to frontend"
+        ]
+      }
+    },
+
+    {
+      "id": "UI_POLISH_01",
+      "name": "Fix 'Someone Took a Shit on It' Frontend Issues",
+      "priority": "P0 - BLOCKING (UI OVERHAUL)",
+      "problems_identified": [
+        "Dashboard layout feels cramped or unbalanced",
+        "Theme colors not cohesive (auto-theme works but aesthetics off)",
+        "Server node cards need better visual hierarchy",
+        "ForensicDrawer graphs lack proper axis labels/legends",
+        "Button states (hover, active) not clearly defined"
+      ],
+      "design_system_improvements": {
+        "color_palette": {
+          "auto_dark": {
+            "background": "#0a0a0a",
+            "surface": "#1a1a1a",
+            "accent": "#3b82f6",
+            "success": "#10b981",
+            "warning": "#f59e0b",
+            "danger": "#ef4444",
+            "text_primary": "#ffffff",
+            "text_secondary": "#9ca3af"
+          },
+          "latte_light": {
+            "background": "#fafafa",
+            "surface": "#ffffff",
+            "accent": "#2563eb",
+            "success": "#059669",
+            "warning": "#d97706",
+            "danger": "#dc2626",
+            "text_primary": "#0a0a0a",
+            "text_secondary": "#6b7280"
+          }
+        },
+        "typography": {
+          "font_family": "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+          "sizes": {
+            "xs": "0.75rem",
+            "sm": "0.875rem",
+            "base": "1rem",
+            "lg": "1.125rem",
+            "xl": "1.25rem",
+            "2xl": "1.5rem"
+          }
+        },
+        "spacing": {
+          "grid_gap": "1.5rem",
+          "card_padding": "1.25rem",
+          "modal_padding": "2rem"
+        }
+      },
+      "specific_fixes": [
+        {
+          "component": "HubNodeCard.jsx",
+          "issues": "CPU/RAM bars hard to read, no visual feedback on hover",
+          "fixes": [
+            "Add subtle drop shadow on hover (shadow-lg transition)",
+            "Increase bar height for CPU/RAM (min 8px for visibility)",
+            "Add percentage labels above bars",
+            "Pulse animation on ONLINE status indicator",
+            "Hover shows full server details tooltip"
+          ]
+        },
+        {
+          "component": "ForensicDrawer.jsx",
+          "issues": "Graph legend unclear, section headers blend with background",
+          "fixes": [
+            "Make section headers bolder (font-semibold → font-bold)",
+            "Add subtle border-bottom under headers",
+            "Improve Recharts tooltip styling (dark bg, white text)",
+            "Add axis labels: 'Time (Last 30 samples)' on X, 'Usage (%)' on Y",
+            "Color-code legend with actual line colors (cyan CPU, green RAM)"
+          ]
+        },
+        {
+          "component": "Dashboard.jsx",
+          "issues": "ReactFlow background dots too faint, 'Connect Node' button not prominent",
+          "fixes": [
+            "Increase dot opacity in dark mode (from 0.1 to 0.2)",
+            "Make 'Connect Node' button larger with accent gradient",
+            "Add floating action button (FAB) in bottom-left for quick actions",
+            "Improve floating cube container (constrain to circular bounds)"
+          ]
+        }
+      ]
+    }
+  ],
+
+  "testing_strategy": {
+    "backend_tests": {
+      "framework": "pytest + httpx (FastAPI test client)",
+      "coverage_target": "80% minimum",
+      "test_files": [
+        "tests/test_agent_endpoints.py - Heartbeat, telemetry, HMAC validation",
+        "tests/test_server_management.py - CRUD operations, status updates",
+        "tests/test_deployment.py - SSH connection mocking, agent install flow",
+        "tests/test_heartbeat_bitmap.py - Binary log encoding/decoding logic"
+      ],
+      "fixtures": [
+        "@pytest.fixture mock_server() - Returns test server object",
+        "@pytest.fixture mock_telemetry() - Returns sample telemetry payload",
+        "@pytest.fixture mock_ssh_client() - Mocks paramiko SSHClient"
+      ]
+    },
+    "agent_tests": {
+      "framework": "Go testing package",
+      "test_files": [
+        "internal/collector/system_test.go - CPU/RAM collection accuracy",
+        "internal/collector/apache_test.go - VHost parsing edge cases",
+        "internal/collector/network_test.go - Port scanning logic",
+        "internal/client/client_test.go - HMAC signature generation"
+      ],
+      "integration_tests": [
+        "Test full heartbeat loop against mock backend",
+        "Verify telemetry payload structure matches backend schema",
+        "Test replay attack prevention (duplicate sequence_id rejection)"
+      ]
+    },
+    "frontend_tests": {
+      "framework": "Vitest + React Testing Library",
+      "test_files": [
+        "src/components/ForensicDrawer.test.jsx - Graph rendering, data display",
+        "src/components/DeploymentDrawer.test.jsx - Form validation, SSH flow",
+        "src/pages/Dashboard.test.jsx - Node rendering, click interactions"
+      ],
+      "mocks": [
+        "MSW (Mock Service Worker) for API endpoints",
+        "Mock TanStack Query client",
+        "Mock ReactFlow canvas"
+      ]
+    }
+  },
+
+  "deployment_architecture": {
+    "production_setup": {
+      "reverse_proxy": "Cloudflare Tunnel (cloudflared.service)",
+      "domains": {
+        "frontend": "https://server-sentinel.theorify.shop (port 5173)",
+        "backend": "https://dev-api.theorify.shop (port 8190)"
+      },
+      "systemd_services": [
+        "sentinel-backend.service - FastAPI with uvicorn",
+        "sentinel-frontend.service - Vite dev server (use `npm run build` + nginx for prod)",
+        "cloudflared.service - Tunnel daemon"
+      ]
+    },
+    "agent_deployment_locations": [
+      "Deployed on monitored servers as /usr/local/bin/sentinel-agent",
+      "Runs as systemd service: sentinel-agent.service",
+      "Logs to /var/log/sentinel-agent.log (optional, size-limited)"
+    ],
+    "database_backup": {
+      "strategy": "Daily SQLite backup via cron",
+      "command": "cp backend/sentinel.db backend/backups/sentinel-$(date +%Y%m%d).db",
+      "retention": "Keep last 30 days of backups"
+    }
+  },
+
+  "security_hardening": {
+    "agent_security": [
+      "✓ Read-only file system access (never chmod, chown, rm)",
+      "✓ HMAC-SHA256 signature on every request (X-Agent-Secret header)",
+      "✓ TLS 1.3 for all backend communication",
+      "✓ Sequence ID replay attack prevention",
+      "✓ No local storage of sensitive data (stream-only design)",
+      "✓ Run as non-root user where possible (systemd User= directive)",
+      "⏳ Rate limiting: Max 1 heartbeat/30s, 1 telemetry/60s per server"
+    ],
+    "backend_security": [
+      "✓ CORS restricted to frontend domain",
+      "✓ HMAC secret validation on agent endpoints",
+      "✓ SQL injection prevention via SQLAlchemy ORM",
+      "⏳ Rate limiting on deployment endpoint (1 req/5min per IP)",
+      "⏳ API key authentication for Gemini endpoints",
+      "⏳ Audit logging for all server modifications"
+    ],
+    "ssh_deployment_security": [
+      "✓ Passwords never logged or stored in database",
+      "✓ SSH credentials cleared from memory after use",
+      "✓ Unique SENTINEL_SECRET generated per server",
+      "✓ Deployment console log sanitized (no password echoes)",
+      "⏳ Optional: SSH key-based auth instead of passwords"
+    ]
+  },
+
+  "knowledge_base_faq": {
+    "file": "docs/SENTINEL_FAQ.md",
+    "sections": [
+      {
+        "category": "General Usage",
+        "questions": [
+          {
+            "q": "How do I connect a new server?",
+            "a": "Click 'Connect Node' button → Enter SSH credentials → Deploy agent → Wait for first heartbeat (~30s)"
+          },
+          {
+            "q": "What permissions does the agent need?",
+            "a": "Read-only access to /proc, /var/log, Apache config. Root required for full system metrics but agent never modifies files."
+          },
+          {
+            "q": "How often does the agent send data?",
+            "a": "Heartbeat every 30s (lightweight), Full telemetry every 60s (detailed metrics)"
+          }
+        ]
+      },
+      {
+        "category": "Troubleshooting",
+        "questions": [
+          {
+            "q": "Server shows OFFLINE but it's running",
+            "a": "Check: 1) Agent service status (systemctl status sentinel-agent), 2) Backend URL in agent config, 3) SENTINEL_SECRET matches backend"
+          },
+          {
+            "q": "CPU/RAM bars are empty on dashboard",
+            "a": "Wait 60s for first telemetry. If still empty, check backend logs for 'Replay detection error' (reset last_sequence_id)"
+          },
+          {
+            "q": "Deployment fails with 'SSH Auth Failed'",
+            "a": "Verify: 1) Correct username, 2) Password allows SSH login, 3) Server firewall allows port 22"
+          }
+        ]
+      },
+      {
+        "category": "Data & Privacy",
+        "questions": [
+          {
+            "q": "What data does the agent collect?",
+            "a": "System metrics (CPU, RAM, disk), Running processes, Apache VHosts, Network ports. NO bash history without opt-in. NO file contents."
+          },
+          {
+            "q": "How long is data retained?",
+            "a": "Telemetry: 7 days (auto-cleanup). Heartbeat logs: 90 days. Connection history: Indefinite."
+          },
+          {
+            "q": "Can the agent modify my server?",
+            "a": "Absolutely NOT. Agent has read-only permissions. It cannot change files, permissions, or execute commands."
+          }
+        ]
+      }
+    ]
+  },
+
+  "gemini_chat_constraints": {
+    "system_prompt": {
+      "role": "Server Sentinel Assistant",
+      "knowledge_scope": [
+        "✓ Server monitoring concepts (CPU, RAM, processes, ports)",
+        "✓ Apache/Nginx configuration best practices",
+        "✓ Linux system administration basics",
+        "✓ Security audit recommendations",
+        "✓ Troubleshooting common server issues",
+        "✗ Topics outside server monitoring (no general chitchat)",
+        "✗ Cannot execute commands or modify servers",
+        "✗ Cannot access external APIs or browse web"
+      ],
+      "behavior_rules": [
+        "Always ground answers in displayed telemetry data",
+        "If user asks to 'fix' something, provide step-by-step SSH commands but emphasize manual execution",
+        "Decline requests to reveal SSH credentials or API keys",
+        "If unsure, say 'I don't have enough data' instead of guessing",
+        "Keep responses concise (max 3 paragraphs unless detailed analysis requested)"
+      ],
+      "example_exchanges": [
+        {
+          "user": "Why is CPU so high?",
+          "assistant": "Your CPU is at 87% with `mysqld` using 45%. This suggests database load. Check slow queries with `mysqld slow query log`. Also, `php-fpm` at 23% may indicate traffic spike—check Apache access logs."
+        },
+        {
+          "user": "Tell me a joke",
+          "assistant": "I'm focused on helping with server monitoring. Is there something about your server metrics I can analyze?"
+        }
+      ]
+    }
+  },
+
+  "phase_1_priority_tasks": {
+    "immediate_fixes": [
+      {
+        "task": "Complete Process Audit UI Integration",
+        "files": ["frontend/src/components/ForensicDrawer.jsx"],
+        "acceptance": "Process Audit section displays top 5 processes with user, CPU%, command"
+      },
+      {
+        "task": "Integrate Apache VHosts Collector",
+        "files": [
+          "go_agent/cmd/sentinel/main.go",
+          "backend/app/models.py (add column)",
+          "frontend/src/components/ForensicDrawer.jsx"
+        ],
+        "acceptance": "Apache VHosts table shows domain, port, root directory"
+      },
+      {
+        "task": "Implement Binary Heartbeat Logging",
+        "files": [
+          "backend/app/models.py (heartbeat_logs table)",
+          "backend/app/routers/agent.py (bitmap logic)"
+        ],
+        "acceptance": "24h uptime calculated from bitmap, no timestamp per heartbeat"
+      },
+      {
+        "task": "UI Polish Sprint",
+        "files": [
+          "frontend/src/components/HubNodeCard.jsx",
+          "frontend/src/components/ForensicDrawer.jsx",
+          "frontend/src/pages/Dashboard.jsx"
+        ],
+        "acceptance": "Dashboard looks professional, graph legends clear, buttons have proper states"
+      }
+    ],
+    "phase_2_features": [
+      "SSH-based agent deployment drawer",
+      "Network port traffic monitoring",
+      "File permission change tracking",
+      "Server-specific Gemini analysis button"
+    ]
+  },
+
+  "output_instructions": {
+    "critical_rules": [
+      "🚨 ALWAYS review handoff docs BEFORE proposing changes",
+      "🚨 NEVER suggest rebuilding existing features from scratch",
+      "🚨 Identify which files ALREADY EXIST before creating new ones",
+      "🚨 Incremental changes only—no big bang rewrites",
+      "🚨 Test each change individually before moving to next task"
+    ],
+    "code_structure": [
+      "1. Start with database schema changes (if needed)",
+      "2. Update backend models and endpoints",
+      "3. Modify agent collectors (Go)",
+      "4. Update frontend components",
+      "5. Write tests for new functionality",
+      "6. Update README and deployment docs"
+    ],
+    "code_style": {
+      "backend": "Black formatter, type hints, docstrings for public methods",
+      "frontend": "Prettier, TypeScript strict mode, prop-types for React components",
+      "agent": "gofmt, error handling on every I/O operation, comments for non-obvious logic"
+    },
+    "comments": [
+      "Explain WHY design choices were made (e.g., bitmap vs timestamps)",
+      "Document security considerations (e.g., read-only agent)",
+      "Link to relevant docs or RFCs where applicable",
+      "Mark future TODOs with // TODO: and ticket reference"
+    ]
+  },
+
+  "success_criteria": {
+    "phase_1_complete": [
+      "✓ Process Audit visible in ForensicDrawer",
+      "✓ Apache VHosts integrated and displaying",
+      "✓ Binary heartbeat logging implemented (database size reduced by 95%)",
+      "✓ UI polished (no more 'someone took a shit on it' complaints)",
+      "✓ All existing features still work (no regressions)",
+      "✓ Test coverage >75% on new code"
+    ],
+    "phase_2_complete": [
+      "✓ SSH deployment working end-to-end",
+      "✓ Port traffic grid with color-coded status",
+      "✓ File permission tracking alerts functional",
+      "✓ Gemini analysis provides actionable insights",
+      "✓ Documentation complete (FAQ, deployment guide, API docs)"
+    ],
+    "production_ready": [
+      "✓ Multi-server testing (3+ servers monitored simultaneously)",
+      "✓ Load testing (100 agents sending telemetry)",
+      "✓ Security audit passed (no exposed secrets, read-only agent verified)",
+      "✓ Monitoring in place (Prometheus metrics, error tracking)",
+      "✓ Backup strategy validated (database recovery tested)"
+    ]
+  },
+
+  "anti_patterns_to_avoid": [
+    "❌ Storing full bash history (privacy violation + storage bloat)",
+    "❌ Giving agent write permissions (security risk)",
+    "❌ Hardcoding secrets in code (use environment variables)",
+    "❌ Storing timestamps for every heartbeat (database bloat)",
+    "❌ Rebuilding existing features instead of iterating",
+    "❌ Adding features without tests (leads to regressions)",
+    "❌ Ignoring existing design patterns in codebase",
+    "❌ Creating multiple similar endpoints (consolidate into one with query params)"
+  ],
+
+  "context_preservation": {
+    "before_every_response": [
+      "1. Review handoff docs to understand what's already done",
+      "2. Check which files already exist before creating new ones",
+      "3. Understand current architecture before proposing changes",
+      "4. Identify dependencies between components",
+      "5. Consider backwards compatibility with deployed agents"
+    ],
+    "when_user_asks_for_feature": [
+      "1. Check if it's already implemented (search handoff docs)",
+      "2. If partial: Identify what's missing and complete it",
+      "3. If new: Design it to fit existing patterns",
+      "4. Always show file paths and specific line numbers for changes"
+    ]
+  }
+}
